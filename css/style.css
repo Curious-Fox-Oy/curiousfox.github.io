@@ -202,6 +202,10 @@ ul, ol {
   color: var(--color-accent);
 }
 
+[data-theme="dark"] .header__logo-icon {
+  filter: invert(1);
+}
+
 .header__nav {
   display: flex;
   align-items: center;
