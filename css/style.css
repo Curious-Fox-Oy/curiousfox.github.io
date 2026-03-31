@@ -287,6 +287,25 @@ ul, ol {
   display: block;
 }
 
+/* Language switcher */
+.lang-switch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--color-text-muted);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.lang-switch:hover {
+  background-color: var(--color-bg-alt);
+  color: var(--color-text);
+}
+
 /* ========================================
    Hero Section
    ======================================== */
