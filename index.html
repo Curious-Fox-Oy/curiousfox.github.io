@@ -1,15 +1,323 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta charset="UTF-8">
-    <title>Curious Fox Oy</title>
-    <link rel="stylesheet" href="styles.css?v=6">
-    <script src="writer.js?v=4" defer></script>
-  </head>
-  <body class="crt">
-    <div id="writer" class="text"><span id="text"></span><span class="terminal-cursor"></span></div>    
-    <div class="contact-btn">
-      <a href="mailto:info@curiousfox.fi">info@curiousfox.fi</a>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Curious Fox - Software development expertise with 40+ years combined experience. Mobile, web, backend development and technical leadership.">
+  <meta name="theme-color" content="#fafaf9">
+  <meta name="color-scheme" content="light dark">
+  
+  <!-- Open Graph -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Curious Fox | Software Development Expertise">
+  <meta property="og:description" content="Software craftsmanship with 40+ years combined experience. Mobile, web, backend development and technical leadership.">
+  <meta property="og:locale" content="en_US">
+  
+  <!-- Twitter Card -->
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="Curious Fox | Software Development Expertise">
+  <meta name="twitter:description" content="Software craftsmanship with 40+ years combined experience. Mobile, web, backend development and technical leadership.">
+  
+  <title>Curious Fox | Software Development Expertise</title>
+  
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="assets/favicon.svg">
+  <link rel="stylesheet" href="css/style.css">
+  
+  <script>
+    (function() {
+      const theme = localStorage.getItem('theme') || 
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="container header__inner">
+      <a href="#" class="header__logo">
+        <svg class="header__logo-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 3L5 9v7c0 3 2 5 7 5s7-2 7-5V9l-7-6zm-5 6l2-1.7V6l-3.5-3L5 6v3zm10 0l-2-1.7V6l3.5-3L20 6v3l-3 0z"/>
+          <circle cx="9" cy="12" r="1.2"/>
+          <circle cx="15" cy="12" r="1.2"/>
+          <ellipse cx="12" cy="15" rx="1" ry="0.6"/>
+        </svg>
+        Curious Fox
+      </a>
+      
+      <nav class="header__nav">
+        <ul class="header__nav-list">
+          <li><a href="#about" class="header__nav-link">About</a></li>
+          <li><a href="#experience" class="header__nav-link">Experience</a></li>
+          <li><a href="#contact" class="header__nav-link">Contact</a></li>
+        </ul>
+        
+        <div class="header__actions">
+          <button class="theme-toggle" aria-label="Toggle dark mode" type="button">
+            <svg class="theme-toggle__icon theme-toggle__icon--moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+            <svg class="theme-toggle__icon theme-toggle__icon--sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="5"/>
+              <line x1="12" y1="1" x2="12" y2="3"/>
+              <line x1="12" y1="21" x2="12" y2="23"/>
+              <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+              <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+              <line x1="1" y1="12" x2="3" y2="12"/>
+              <line x1="21" y1="12" x2="23" y2="12"/>
+              <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+              <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+            </svg>
+          </button>
+          
+          <button class="header__menu-btn" aria-label="Open menu" aria-expanded="false" type="button">
+            <svg class="header__menu-icon header__menu-icon--open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12"/>
+              <line x1="3" y1="6" x2="21" y2="6"/>
+              <line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+            <svg class="header__menu-icon header__menu-icon--close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display: none;">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </div>
+      </nav>
     </div>
-  </body>
+  </header>
+  
+  <!-- Mobile Navigation -->
+  <nav class="mobile-nav" aria-label="Mobile navigation">
+    <ul class="mobile-nav__list">
+      <li><a href="#about" class="mobile-nav__link">About</a></li>
+      <li><a href="#experience" class="mobile-nav__link">Experience</a></li>
+      <li><a href="#contact" class="mobile-nav__link">Contact</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="container">
+        <div class="hero__content fade-in">
+          <h1 class="hero__title">
+            Software craftsmanship,<br>
+            <span class="hero__title-accent">40 years combined.</span>
+          </h1>
+          <p class="hero__subtitle">
+            We're a two-person studio with deep expertise across the full stack. 
+            From mobile apps to scalable backends, we build software that lasts.
+          </p>
+          <a href="#contact" class="hero__cta">
+            Let's talk
+            <svg class="hero__cta-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <line x1="5" y1="12" x2="19" y2="12"/>
+              <polyline points="12 5 19 12 12 19"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="section section--alt">
+      <div class="container">
+        <header class="section__header fade-in">
+          <span class="section__label">About</span>
+          <h2 class="section__title">Small team. Big experience.</h2>
+        </header>
+        
+        <div class="about__content">
+          <div class="about__text fade-in">
+            <p>
+              <span class="about__highlight">Curious Fox</span> is a software development studio 
+              founded by two senior engineers, each with over 20 years in the industry. 
+              We've shipped products for startups, scaled systems for enterprises, and led 
+              teams through complex technical challenges.
+            </p>
+            <p>
+              Our strength lies in breadth without sacrificing depth. We're comfortable 
+              architecting a system from scratch, diving into legacy code, or stepping into 
+              a leadership role when projects need direction. We've been developers, tech 
+              leads, and trusted advisors — often all at once.
+            </p>
+            <p>
+              We take on a limited number of engagements at a time. This means we can give 
+              your project the focus it deserves, and you get direct access to senior 
+              expertise — no layers, no hand-offs.
+            </p>
+            <p>
+              We embrace AI as a core part of how we work. While our decades of experience 
+              guide the architecture and decisions, AI tools accelerate the implementation — 
+              letting us deliver faster without compromising on quality.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Experience Section -->
+    <section id="experience" class="section">
+      <div class="container">
+        <header class="section__header fade-in">
+          <span class="section__label">Expertise</span>
+          <h2 class="section__title">What we bring to the table</h2>
+        </header>
+        
+        <div class="experience__grid">
+          <!-- Mobile Development -->
+          <article class="experience__item fade-in">
+            <div class="experience__item-header">
+              <div class="experience__item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+                  <line x1="12" y1="18" x2="12.01" y2="18"/>
+                </svg>
+              </div>
+              <h3 class="experience__item-title">Mobile Development</h3>
+            </div>
+            <p class="experience__item-desc">
+              Native and cross-platform mobile apps with polished user experiences. 
+              We've built apps used by millions and know how to navigate the platform ecosystems.
+            </p>
+            <div class="experience__item-tags">
+              <span class="experience__tag">iOS</span>
+              <span class="experience__tag">Android</span>
+              <span class="experience__tag">Kotlin Multiplatform</span>
+              <span class="experience__tag">Flutter</span>
+            </div>
+          </article>
+          
+          <!-- Frontend Development -->
+          <article class="experience__item fade-in">
+            <div class="experience__item-header">
+              <div class="experience__item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <polyline points="16 18 22 12 16 6"/>
+                  <polyline points="8 6 2 12 8 18"/>
+                </svg>
+              </div>
+              <h3 class="experience__item-title">Frontend Development</h3>
+            </div>
+            <p class="experience__item-desc">
+              Modern web applications that perform well and scale. We focus on 
+              maintainable architecture and accessible, responsive interfaces.
+            </p>
+            <div class="experience__item-tags">
+              <span class="experience__tag">TypeScript</span>
+              <span class="experience__tag">Angular</span>
+              <span class="experience__tag">React</span>
+              <span class="experience__tag">AngularJS</span>
+            </div>
+          </article>
+          
+          <!-- Backend Development -->
+          <article class="experience__item fade-in">
+            <div class="experience__item-header">
+              <div class="experience__item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                  <line x1="8" y1="21" x2="16" y2="21"/>
+                  <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+              </div>
+              <h3 class="experience__item-title">Backend & Infrastructure</h3>
+            </div>
+            <p class="experience__item-desc">
+              APIs, databases, and cloud infrastructure designed for reliability. 
+              We've built systems handling high traffic and complex business logic.
+            </p>
+            <div class="experience__item-tags">
+              <span class="experience__tag">Java</span>
+              <span class="experience__tag">Kotlin</span>
+              <span class="experience__tag">Spring</span>
+              <span class="experience__tag">PostgreSQL</span>
+              <span class="experience__tag">AWS</span>
+            </div>
+          </article>
+          
+          <!-- Technical Leadership -->
+          <article class="experience__item fade-in">
+            <div class="experience__item-header">
+              <div class="experience__item-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <h3 class="experience__item-title">Technical Leadership</h3>
+            </div>
+            <p class="experience__item-desc">
+              Beyond code, we can help with architecture decisions, code reviews, 
+              team mentoring, and getting projects unstuck when things get complicated.
+            </p>
+            <div class="experience__item-tags">
+              <span class="experience__tag">Architecture</span>
+              <span class="experience__tag">Code Review</span>
+              <span class="experience__tag">Mentoring</span>
+              <span class="experience__tag">Project Rescue</span>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section section--alt">
+      <div class="container">
+        <header class="section__header fade-in">
+          <span class="section__label">Contact</span>
+          <h2 class="section__title">Let's build something together</h2>
+        </header>
+        
+        <div class="contact__content fade-in">
+          <p class="contact__text">
+            Have a project in mind? We'd love to hear about it. 
+            Reach out and let's discuss how we can help.
+          </p>
+          
+          <div class="contact__links">
+            <a href="mailto:hello@curiousfox.dev" class="contact__link">
+              <svg class="contact__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                <polyline points="22,6 12,13 2,6"/>
+              </svg>
+              hello@curiousfox.dev
+            </a>
+            
+            <a href="https://github.com/curiousfox" class="contact__link" target="_blank" rel="noopener noreferrer">
+              <svg class="contact__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/>
+              </svg>
+              GitHub
+            </a>
+            
+            <a href="https://linkedin.com/company/curiousfox" class="contact__link" target="_blank" rel="noopener noreferrer">
+              <svg class="contact__link-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                <rect x="2" y="9" width="4" height="12"/>
+                <circle cx="4" cy="4" r="2"/>
+              </svg>
+              LinkedIn
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer__inner">
+      <p class="footer__copyright">
+        &copy; 2026 Curious Fox. All rights reserved.
+      </p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
 </html>
