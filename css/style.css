@@ -684,61 +684,14 @@ ul, ol {
   }
 }
 
-/* ========================================
-   Hero - Mouse Glow
-   ======================================== */
 .hero {
   position: relative;
   overflow: hidden;
-  background-color: #222222;
+  user-select: none;
 }
 
 [data-theme="dark"] .hero {
   background-color: var(--color-bg);
-}
-
-.hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(
-    600px circle at var(--mouse-x, 30%) var(--mouse-y, 50%),
-    rgba(255, 255, 255, 0.12),
-    transparent 60%
-  );
-  pointer-events: none;
-  z-index: 0;
-}
-
-[data-theme="dark"] .hero::before {
-  background: radial-gradient(
-    600px circle at var(--mouse-x, 30%) var(--mouse-y, 50%),
-    rgba(255, 255, 255, 0.07),
-    transparent 60%
-  );
-}
-
-/* Hero text — white on both the gray (light) and near-black (dark) backgrounds */
-.hero .hero__title {
-  color: #ffffff;
-}
-
-.hero .hero__subtitle {
-  color: rgba(255, 255, 255, 0.78);
-}
-
-/* Lighter amber so the accent stays visible against the mid-gray (#777) bg */
-.hero .hero__title-accent,
-.hero .hero__cta {
-  color: #fcd34d;
-}
-
-.hero .hero__cta:hover {
-  color: #fde68a;
-}
-
-.hero .hero__cursor {
-  background-color: #fcd34d;
 }
 
 /* Dark mode: restore the theme's own accent (already contrast-safe on near-black) */
@@ -808,35 +761,6 @@ ul, ol {
 .wm-path--7 { animation: wmDraw 0.45s cubic-bezier(0.4, 0, 0.2, 1) 1.12s forwards; }
 .wm-path--8 { animation: wmDraw 0.4s  cubic-bezier(0.4, 0, 0.2, 1) 1.22s forwards; }
 
-/*
-  Hover / touch highlight — two-class selector (.wm-path.wm-path--hover)
-  has higher specificity than the per-path rules (.wm-path--N) so it wins
-  and temporarily replaces the wmLoop animation on the active path.
-  stroke-dashoffset: 0 is declared here so it wins over the base
-  .wm-path rule (stroke-dashoffset: 2000) when wmHoverIn doesn't animate it.
-*/
-.wm-path.wm-path--hover,
-.wm-path.wm-path--hover-out {
-  stroke-dashoffset: 0;
-}
-
-.wm-path.wm-path--hover {
-  animation: wmHoverIn 0.18s ease forwards;
-}
-
-.wm-path.wm-path--hover-out {
-  animation: wmHoverOut 0.55s ease forwards;
-}
-
-@keyframes wmHoverIn {
-  from { stroke-opacity: 0.22; stroke-width: 0.5; }
-  to   { stroke-opacity: 1;    stroke-width: 2;   }
-}
-
-@keyframes wmHoverOut {
-  from { stroke-opacity: 1;    stroke-width: 2;   }
-  to   { stroke-opacity: 0.22; stroke-width: 0.5; }
-}
 
 @media (max-width: 1023px) {
   .hero__watermark {

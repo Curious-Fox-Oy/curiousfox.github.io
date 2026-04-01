@@ -142,21 +142,7 @@
     });
   });
 
-  // ========================================
-  // Hero Mouse Glow
-  // ========================================
-
   var heroSection = document.querySelector('.hero');
-
-  if (heroSection) {
-    heroSection.addEventListener('mousemove', function(e) {
-      var rect = heroSection.getBoundingClientRect();
-      var x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
-      var y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
-      heroSection.style.setProperty('--mouse-x', x + '%');
-      heroSection.style.setProperty('--mouse-y', y + '%');
-    });
-  }
 
   // ========================================
   // Hero Number Counter
@@ -218,7 +204,7 @@
         charIndex++;
         setTimeout(typeNextChar, 42);
       } else {
-        if (heroCursorEl) heroCursorEl.classList.add('hero__cursor--blink');
+        if (heroCursorEl) heroCursorEl.style.display = 'none';
         revealHeroContent();
       }
     }
@@ -226,74 +212,6 @@
     setTimeout(typeNextChar, 250);
   } else {
     revealHeroContent();
-  }
-
-  // ========================================
-  // Watermark Path Interactive Highlight
-  // Uses geometric hit-testing (isPointInFill) so hover works even when
-  // the logo is visually behind the hero text content.
-  // ========================================
-
-  var wmSvg = document.querySelector('.hero__watermark svg');
-  var wmPaths = wmSvg ? Array.from(wmSvg.querySelectorAll('.wm-path')) : [];
-  var wmActive = new Set();
-  var wmFadeTimers = new WeakMap();
-
-  function wmEnter(path) {
-    var t = wmFadeTimers.get(path);
-    if (t) { clearTimeout(t); wmFadeTimers.delete(path); }
-    path.classList.remove('wm-path--hover-out');
-    path.classList.add('wm-path--hover');
-    wmActive.add(path);
-  }
-
-  function wmLeave(path) {
-    wmActive.delete(path);
-    path.classList.remove('wm-path--hover');
-    path.classList.add('wm-path--hover-out');
-    var t = setTimeout(function() {
-      path.classList.remove('wm-path--hover-out');
-      wmFadeTimers.delete(path);
-    }, 560);
-    wmFadeTimers.set(path, t);
-  }
-
-  function wmHitTest(clientX, clientY) {
-    if (!wmSvg || !wmPaths.length) return;
-    var ctm = wmSvg.getScreenCTM();
-    if (!ctm) return;
-    var pt = wmSvg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    var svgPt = pt.matrixTransform(ctm.inverse());
-
-    wmPaths.forEach(function(path) {
-      var hit = false;
-      try { hit = path.isPointInFill(svgPt); } catch (e) {}
-      var isActive = wmActive.has(path);
-      if (hit && !isActive) { wmEnter(path); }
-      else if (!hit && isActive) { wmLeave(path); }
-    });
-  }
-
-  function wmClearAll() {
-    wmActive.forEach(function(path) { wmLeave(path); });
-  }
-
-  if (heroSection && wmSvg) {
-    // Mouse — fires across the full hero including areas covered by text
-    heroSection.addEventListener('mousemove', function(e) {
-      wmHitTest(e.clientX, e.clientY);
-    });
-    heroSection.addEventListener('mouseleave', wmClearAll);
-
-    // Touch
-    heroSection.addEventListener('touchmove', function(e) {
-      var t = e.touches[0];
-      wmHitTest(t.clientX, t.clientY);
-    }, { passive: true });
-    heroSection.addEventListener('touchend', wmClearAll, { passive: true });
-    heroSection.addEventListener('touchcancel', wmClearAll, { passive: true });
   }
 
 })();
