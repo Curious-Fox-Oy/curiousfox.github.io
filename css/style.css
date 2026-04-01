@@ -349,6 +349,7 @@ ul, ol {
 
 .hero__content {
   max-width: 48rem;
+  position: relative;
 }
 
 .hero__title {
@@ -682,6 +683,225 @@ ul, ol {
     gap: var(--space-6);
   }
 }
+
+/* ========================================
+   Hero - Mouse Glow
+   ======================================== */
+.hero {
+  position: relative;
+  overflow: hidden;
+  background-color: #222222;
+}
+
+[data-theme="dark"] .hero {
+  background-color: var(--color-bg);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 30%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.12),
+    transparent 60%
+  );
+  pointer-events: none;
+  z-index: 0;
+}
+
+[data-theme="dark"] .hero::before {
+  background: radial-gradient(
+    600px circle at var(--mouse-x, 30%) var(--mouse-y, 50%),
+    rgba(255, 255, 255, 0.07),
+    transparent 60%
+  );
+}
+
+/* Hero text — white on both the gray (light) and near-black (dark) backgrounds */
+.hero .hero__title {
+  color: #ffffff;
+}
+
+.hero .hero__subtitle {
+  color: rgba(255, 255, 255, 0.78);
+}
+
+/* Lighter amber so the accent stays visible against the mid-gray (#777) bg */
+.hero .hero__title-accent,
+.hero .hero__cta {
+  color: #fcd34d;
+}
+
+.hero .hero__cta:hover {
+  color: #fde68a;
+}
+
+.hero .hero__cursor {
+  background-color: #fcd34d;
+}
+
+/* Dark mode: restore the theme's own accent (already contrast-safe on near-black) */
+[data-theme="dark"] .hero .hero__title-accent,
+[data-theme="dark"] .hero .hero__cta {
+  color: var(--color-accent);
+}
+
+[data-theme="dark"] .hero .hero__cta:hover {
+  color: var(--color-accent-hover, #fbbf24);
+}
+
+[data-theme="dark"] .hero .hero__cursor {
+  background-color: var(--color-accent);
+}
+
+.hero .container {
+  position: relative;
+  z-index: 1;
+}
+
+/* ========================================
+   Hero - Watermark & Logo Build + Loop
+   ======================================== */
+.hero__watermark {
+  position: absolute;
+  right: 5%;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50%;
+  max-width: 560px;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  transition: opacity 0.4s ease;
+}
+
+/* Wireframe — no fill, stroke only */
+/*
+  transparent fill (not 'none') so isPointInFill() hit-tests the full shape area.
+  pointer-events handled by the hero mousemove listener, not directly on paths.
+*/
+.wm-path {
+  fill: transparent;
+  stroke: var(--color-accent);
+  stroke-width: 0.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2000;
+  stroke-dashoffset: 2000;
+  stroke-opacity: 0;
+}
+
+/* Draw each path's outline once on load; hover interaction handled by JS */
+@keyframes wmDraw {
+  0%   { stroke-dashoffset: 2000; stroke-opacity: 0;    }
+  12%  {                           stroke-opacity: 0.9;  }
+  100% { stroke-dashoffset: 0;    stroke-opacity: 0.22; }
+}
+
+.wm-path--1 { animation: wmDraw 0.9s  cubic-bezier(0.4, 0, 0.2, 1) 0.10s forwards; }
+.wm-path--2 { animation: wmDraw 0.8s  cubic-bezier(0.4, 0, 0.2, 1) 0.35s forwards; }
+.wm-path--3 { animation: wmDraw 0.7s  cubic-bezier(0.4, 0, 0.2, 1) 0.55s forwards; }
+.wm-path--4 { animation: wmDraw 0.6s  cubic-bezier(0.4, 0, 0.2, 1) 0.72s forwards; }
+.wm-path--5 { animation: wmDraw 0.6s  cubic-bezier(0.4, 0, 0.2, 1) 0.88s forwards; }
+.wm-path--6 { animation: wmDraw 0.5s  cubic-bezier(0.4, 0, 0.2, 1) 1.00s forwards; }
+.wm-path--7 { animation: wmDraw 0.45s cubic-bezier(0.4, 0, 0.2, 1) 1.12s forwards; }
+.wm-path--8 { animation: wmDraw 0.4s  cubic-bezier(0.4, 0, 0.2, 1) 1.22s forwards; }
+
+/*
+  Hover / touch highlight — two-class selector (.wm-path.wm-path--hover)
+  has higher specificity than the per-path rules (.wm-path--N) so it wins
+  and temporarily replaces the wmLoop animation on the active path.
+  stroke-dashoffset: 0 is declared here so it wins over the base
+  .wm-path rule (stroke-dashoffset: 2000) when wmHoverIn doesn't animate it.
+*/
+.wm-path.wm-path--hover,
+.wm-path.wm-path--hover-out {
+  stroke-dashoffset: 0;
+}
+
+.wm-path.wm-path--hover {
+  animation: wmHoverIn 0.18s ease forwards;
+}
+
+.wm-path.wm-path--hover-out {
+  animation: wmHoverOut 0.55s ease forwards;
+}
+
+@keyframes wmHoverIn {
+  from { stroke-opacity: 0.22; stroke-width: 0.5; }
+  to   { stroke-opacity: 1;    stroke-width: 2;   }
+}
+
+@keyframes wmHoverOut {
+  from { stroke-opacity: 1;    stroke-width: 2;   }
+  to   { stroke-opacity: 0.22; stroke-width: 0.5; }
+}
+
+@media (max-width: 1023px) {
+  .hero__watermark {
+    width: 75%;
+    right: -18%;
+  }
+}
+
+@media (max-width: 639px) {
+  .hero__watermark {
+    width: 90%;
+    right: -25%;
+  }
+}
+
+/* ========================================
+   Hero - Typewriter & Cursor
+   ======================================== */
+.hero__cursor {
+  display: inline-block;
+  width: 3px;
+  height: 0.82em;
+  background-color: var(--color-accent);
+  vertical-align: -0.04em;
+  border-radius: 1px;
+  margin-left: 2px;
+}
+
+.hero__cursor--blink {
+  animation: heroCursorBlink 1s step-end infinite;
+}
+
+@keyframes heroCursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+/* ========================================
+   Hero - Sequenced Reveal Animations
+   ======================================== */
+.hero__title-accent--anim,
+.hero__item-anim {
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition: opacity 0.55s ease var(--anim-delay, 0ms),
+              transform 0.55s ease var(--anim-delay, 0ms);
+}
+
+.hero__title-accent--anim {
+  transform: none;
+  transition: opacity 0.7s ease;
+}
+
+.hero__title-accent--anim.is-visible,
+.hero__item-anim.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ========================================
+   Experience Cards - Staggered Entrance
+   ======================================== */
+.experience__item.fade-in:nth-child(2) { transition-delay: 110ms; }
+.experience__item.fade-in:nth-child(3) { transition-delay: 220ms; }
+.experience__item.fade-in:nth-child(4) { transition-delay: 330ms; }
 
 /* ========================================
    Responsive - Mobile (<640px)
