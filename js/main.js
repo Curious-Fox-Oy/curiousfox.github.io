@@ -243,7 +243,7 @@
 
     var PT_EYE_IDX       = 5;   // wm-path--6 (0-based) — the almond-shaped eye
     var PT_EYE_THRESHOLD = 28;  // px, screen space
-    var PT_MAX           = 100; // hard cap; oldest particles are culled first when exceeded
+    var PT_MAX           = 80; // hard cap; oldest particles are culled first when exceeded
 
     // --- Canvas resize ---
     function ptResize() {
@@ -383,39 +383,61 @@
     }
 
     // --- rAF render loop: self-stops when the particle pool is empty ---
-    // Zero DOM reads inside: all values are pre-cached (ptLogW/H, p.hsl, p.rgbaFn).
+    // Zero DOM reads inside: all values are pre-cached (ptLogW/H, p.hsl, p.headColor).
     function ptLoop() {
       ptCtx.clearRect(0, 0, ptLogW, ptLogH);
       var alive = false;
+      var eyeSamps = ptPathData[PT_EYE_IDX] ? ptPathData[PT_EYE_IDX].samples : [];
 
-      // Pass 1: expanding rings
+      // Pass 0: eye flash — white fill bloom + gold outline, both fade out
       for (var i = ptParticles.length - 1; i >= 0; i--) {
         var p = ptParticles[i];
-        if (p.type !== 'r') continue;
-        p.r += p.dr;
+        if (p.type !== 'e') continue;
         p.life--;
-        if (p.life <= 0 || p.r >= p.maxR) { ptParticles.splice(i, 1); continue; }
+        if (p.life <= 0) { ptParticles.splice(i, 1); continue; }
+        if (!eyeSamps.length) { p.life = 0; continue; }
         alive = true;
-        var lf    = p.life / p.maxLife;
-        var alpha = lf * (1 - p.r / p.maxR) * 0.85;
-        ptCtx.save();
-        ptCtx.globalAlpha = alpha;
-        ptCtx.shadowColor = p.shadowColor;
-        ptCtx.shadowBlur  = 20 * lf;
-        ptCtx.strokeStyle = p.strokeColor;
-        ptCtx.lineWidth   = 1.5 + lf * 2.5;
+        var lf = p.life / p.maxLife;
+
+        // Build the eye path once — reused for fill and stroke below
         ptCtx.beginPath();
-        ptCtx.arc(p.cx, p.cy, p.r, 0, 6.2832);
+        ptCtx.moveTo(eyeSamps[0].x, eyeSamps[0].y);
+        for (var j = 1; j < eyeSamps.length; j++) {
+          ptCtx.lineTo(eyeSamps[j].x, eyeSamps[j].y);
+        }
+        ptCtx.closePath();
+
+        // White fill: fades out in the first half (gone by lf = 0.5)
+        var fillAlpha = Math.max(0, lf * 2 - 1);
+        if (fillAlpha > 0) {
+          ptCtx.save();
+          ptCtx.globalAlpha = fillAlpha;
+          ptCtx.shadowColor = p.fillColor;
+          ptCtx.shadowBlur  = 28 * fillAlpha;
+          ptCtx.fillStyle   = p.fillColor;
+          ptCtx.fill();
+          ptCtx.restore();
+        }
+
+        // Gold outline: runs the full duration
+        ptCtx.save();
+        ptCtx.globalAlpha = Math.pow(lf, 0.45) * 0.92;
+        ptCtx.shadowColor = p.flashColor;
+        ptCtx.shadowBlur  = 16 * lf;
+        ptCtx.strokeStyle = p.flashColor;
+        ptCtx.lineWidth   = 1 + lf * 3.5;
+        ptCtx.lineCap     = 'round';
+        ptCtx.lineJoin    = 'round';
         ptCtx.stroke();
         ptCtx.restore();
       }
 
-      // Pass 2: shooting comets with colored trails
+      // Pass 2: shooting comets with gold-white trails
       for (var i = ptParticles.length - 1; i >= 0; i--) {
         var p = ptParticles[i];
         if (p.type !== 'c') continue;
         p.px = p.x; p.py = p.y;
-        p.vx *= 0.91; p.vy *= 0.91; p.vy += 0.12;
+        p.vx *= 0.91; p.vy *= 0.91; p.vy += 0.06;
         p.x  += p.vx; p.y  += p.vy; p.life--;
         if (p.life <= 0) { ptParticles.splice(i, 1); continue; }
         alive = true;
@@ -423,7 +445,7 @@
         var alpha = Math.pow(lf, 0.6);
         ptCtx.save();
         ptCtx.globalAlpha = alpha;
-        ptCtx.shadowColor = p.hsl; // pre-computed string, no allocation per frame
+        ptCtx.shadowColor = p.hsl;
         ptCtx.shadowBlur  = 12 + p.size * 3;
         ptCtx.strokeStyle = p.hsl;
         ptCtx.lineWidth   = p.size * 0.9 * lf;
@@ -433,7 +455,7 @@
         ptCtx.lineTo(p.x,  p.y);
         ptCtx.stroke();
         ptCtx.globalAlpha = alpha * 0.95;
-        ptCtx.fillStyle   = '#ffffff';
+        ptCtx.fillStyle   = p.headColor;
         ptCtx.shadowBlur  = 8;
         ptCtx.beginPath();
         ptCtx.arc(p.x, p.y, Math.max(p.size * 0.55 * lf, 0.5), 0, 6.2832);
@@ -441,12 +463,12 @@
         ptCtx.restore();
       }
 
-      // Pass 3: gold-amber twinkling sparks
+      // Pass 3: twinkling gold sparks
       ptCtx.save();
       for (var i = ptParticles.length - 1; i >= 0; i--) {
         var p = ptParticles[i];
         if (p.type !== 's') continue;
-        p.vx *= 0.94; p.vy *= 0.94; p.vy += 0.06;
+        p.vx *= 0.94; p.vy *= 0.94; p.vy += 0.03;
         p.x  += p.vx; p.y  += p.vy; p.life--;
         if (p.life <= 0) { ptParticles.splice(i, 1); continue; }
         alive = true;
@@ -454,7 +476,7 @@
         var twinkle = 0.55 + 0.45 * Math.abs(Math.sin(p.life * 0.45 + p.phase));
         var alpha   = lf * twinkle;
         var r       = p.size * (0.4 + lf * 0.6);
-        ptCtx.shadowColor = p.hsl; // pre-computed string, no allocation per frame
+        ptCtx.shadowColor = p.hsl;
         ptCtx.shadowBlur  = 8;
         ptCtx.globalAlpha = alpha * 0.9;
         ptCtx.strokeStyle = p.hsl;
@@ -464,7 +486,7 @@
         ptCtx.moveTo(p.x, p.y - r); ptCtx.lineTo(p.x, p.y + r);
         ptCtx.stroke();
         ptCtx.globalAlpha = alpha;
-        ptCtx.fillStyle   = '#ffffff';
+        ptCtx.fillStyle   = p.headColor;
         ptCtx.beginPath();
         ptCtx.arc(p.x, p.y, Math.max(r * 0.35, 0.3), 0, 6.2832);
         ptCtx.fill();
@@ -492,69 +514,77 @@
     }
 
     // --- Eye of the Fox burst ---
-    // Rings centre on the eye; comets and sparks originate from the full logo outline.
+    // Eye flash + two small rings + stardust all originate from the eye area.
+    // Colors are theme-aware: gold/white in dark mode, deep amber/gold in light mode.
     function ptEyeBurst(cx, cy) {
-      var NEW_COUNT = 3 + 10 + 50;
+      var isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+      // Theme-aware palette — all strings pre-computed here, zero allocation in the loop
+      var flashColor = isDark ? 'rgba(255,220,80,1)'  : 'rgba(195,110,0,1)';
+      // Comet trail hue range and lightness
+      var cHueLo = isDark ? 40 : 22;  var cHueHi = isDark ? 58 : 42;
+      var cLight = isDark ? '78%' : '48%';
+      var cHead  = isDark ? '#ffffff' : 'hsl(38,100%,38%)';
+      // Spark hue range and lightness
+      var sHueLo = isDark ? 38 : 18;  var sHueHi = isDark ? 56 : 40;
+      var sLight = isDark ? '82%' : '50%';
+      var sHead  = isDark ? '#ffffff' : 'hsl(35,100%,42%)';
+
+      var NEW_COUNT = 1 + 14 + 60;
       ptCullToMax(NEW_COUNT);
 
-      // 3 expanding golden rings scaled to the full logo bounding box
-      var halfDiag = ptLogoBBox.halfDiag || 100;
-      for (var ri = 0; ri < 3; ri++) {
-        ptParticles.push({
-          type: 'r',
-          cx: cx, cy: cy,
-          r: 5, dr: 8 + ri * 4,
-          maxR: halfDiag * (0.85 + ri * 0.35),
-          life: 20 + ri * 5, maxLife: 20 + ri * 5,
-          // Pre-computed color strings — no string allocation inside the loop
-          shadowColor: 'rgba(255,210,80,1)',
-          strokeColor: 'rgba(255,220,100,1)'
-        });
-      }
+      // Eye flash: white fill bloom + gold outline
+      ptParticles.push({
+        type: 'e',
+        life: 18, maxLife: 18,
+        flashColor: flashColor,
+        fillColor: flashColor // isDark ? '#ffffff' : '#fff4d6'
+      });
 
-      // 10 spectrum comets — spawn from random logo path points, shoot outward from eye
-      var totalSamples = ptAllSamples.length || 1;
-      for (var ci = 0; ci < 10; ci++) {
-        var origin = ptAllSamples[Math.floor(Math.random() * totalSamples)];
-        var ox = origin.x + (Math.random() - 0.5) * 14;
-        var oy = origin.y + (Math.random() - 0.5) * 14;
+      // 14 gold comets — spawn from eye path, shoot outward from eye centre
+      var eyeSamples = ptPathData[PT_EYE_IDX] ? ptPathData[PT_EYE_IDX].samples : ptAllSamples;
+      var eyeCount = eyeSamples.length || 1;
+      for (var ci = 0; ci < 14; ci++) {
+        var origin = eyeSamples[Math.floor(Math.random() * eyeCount)];
+        var ox = origin.x + (Math.random() - 0.5) * 8;
+        var oy = origin.y + (Math.random() - 0.5) * 8;
         var dx = ox - cx, dy = oy - cy;
         var dist  = Math.sqrt(dx * dx + dy * dy) || 1;
-        var speed = 14 + Math.random() * 10;
-        var hue   = (ci * 36) % 360;
+        var speed = 8 + Math.random() * 5;
+        var hue   = cHueLo + Math.random() * (cHueHi - cHueLo);
         ptParticles.push({
           type: 'c',
           x: ox, y: oy, px: ox, py: oy,
           vx: (dx / dist) * speed * (0.7 + Math.random() * 0.6),
           vy: (dy / dist) * speed * (0.7 + Math.random() * 0.6),
-          hue: hue,
-          hsl: 'hsl(' + hue + ',100%,70%)', // pre-computed — read directly in ptLoop
-          life: 18 + Math.round(Math.random() * 12),
-          maxLife: 30,
-          size: 2.5 + Math.random() * 2
+          hsl: 'hsl(' + Math.round(hue) + ',100%,' + cLight + ')',
+          headColor: cHead,
+          life: 28 + Math.round(Math.random() * 12),
+          maxLife: 40,
+          size: 2 + Math.random() * 2
         });
       }
 
-      // 50 gold-amber sparks — spawn from random logo path points, drift outward
-      for (var si = 0; si < 50; si++) {
-        var origin = ptAllSamples[Math.floor(Math.random() * totalSamples)];
+      // 60 gold sparks — spawn from eye path, drift outward from eye centre
+      for (var si = 0; si < 60; si++) {
+        var origin = eyeSamples[Math.floor(Math.random() * eyeCount)];
         var ox = origin.x + (Math.random() - 0.5) * 10;
         var oy = origin.y + (Math.random() - 0.5) * 10;
         var dx = ox - cx, dy = oy - cy;
         var dist  = Math.sqrt(dx * dx + dy * dy) || 1;
-        var speed = 3 + Math.random() * 7;
-        var hue   = 30 + Math.random() * 30;
+        var speed = 3 + Math.random() * 4;
+        var hue   = sHueLo + Math.random() * (sHueHi - sHueLo);
         ptParticles.push({
           type: 's',
           x: ox, y: oy,
           vx: (dx / dist) * speed * (0.5 + Math.random() * 0.5),
-          vy: (dy / dist) * speed * (0.5 + Math.random() * 0.5) - 1,
-          life: 35 + Math.round(Math.random() * 20),
-          maxLife: 55,
+          vy: (dy / dist) * speed * (0.5 + Math.random() * 0.5) - 0.5,
+          life: 50 + Math.round(Math.random() * 20),
+          maxLife: 80,
           size: 0.9 + Math.random() * 2.2,
           phase: Math.random() * 6.2832,
-          hue: hue,
-          hsl: 'hsl(' + hue + ',100%,75%)' // pre-computed — read directly in ptLoop
+          hsl: 'hsl(' + Math.round(hue) + ',100%,' + sLight + ')',
+          headColor: sHead
         });
       }
 
