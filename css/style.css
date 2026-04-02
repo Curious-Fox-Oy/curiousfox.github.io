@@ -236,7 +236,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .header__logo-icon {
-  width: 1.75rem;
+  width: auto;
   height: 1.75rem;
   color: var(--color-accent);
 }
@@ -890,10 +890,8 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   overflow: hidden;
   user-select: none;
-}
-
-[data-theme="dark"] .hero {
   background-color: var(--color-bg);
+  transition: background-color var(--transition-base);
 }
 
 /* Dark mode: restore the theme's own accent (already contrast-safe on near-black) */
@@ -928,7 +926,6 @@ h1, h2, h3, h4, h5, h6 {
   pointer-events: none;
   user-select: none;
   z-index: 0;
-  transition: opacity 0.4s ease;
 }
 
 /* Wireframe — no fill, stroke only */
