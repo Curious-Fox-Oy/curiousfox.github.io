@@ -215,10 +215,9 @@
   }
 
   // ========================================
-  // Logo Stardust Effect
-  // Canvas + path sampling + particle loop: all devices.
-  // Reveal burst fires on animationend for each path (mobile too).
-  // Continuous mouse effect: desktop only.
+  // Eye of the Fox Effect
+  // All initialisation is deferred until the user first clicks the eye
+  // path (wm-path--8). Nothing runs at page load.
   // ========================================
 
   var ptWmSvg   = document.querySelector('.hero__watermark svg');
@@ -226,13 +225,27 @@
 
   if (heroSection && ptWmSvg && ptWmPaths.length) {
 
-    // --- Canvas setup (all devices) ---
-    var ptCanvas = document.createElement('canvas');
-    ptCanvas.setAttribute('aria-hidden', 'true');
-    ptCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;';
-    heroSection.appendChild(ptCanvas);
-    var ptCtx = ptCanvas.getContext('2d');
+    // --- State (all null/empty until ptLazyInit fires) ---
+    var ptCanvas      = null;
+    var ptCtx         = null;
+    var ptInitialized = false;
+    var ptRafActive   = false;
+    var ptRawPaths    = [];
+    var ptPathData    = [];
+    var ptAllSamples  = []; // flat canvas-local array of ALL path points — burst origin pool
+    var ptLogoBBox    = { cx: 0, cy: 0, halfDiag: 100 }; // computed after CTM, used to size rings
+    var ptLogW        = 0;  // logical canvas width (CSS px) — cached for rAF loop, no DOM reads
+    var ptLogH        = 0;  // logical canvas height (CSS px) — cached for rAF loop, no DOM reads
+    var ptResizeTimer = null;
+    var ptParticles   = [];
+    // Reusable SVG point — createSVGPoint is cheap and needed for hit-testing too
+    var ptSvgPt       = ptWmSvg.createSVGPoint();
 
+    var PT_EYE_IDX       = 5;   // wm-path--6 (0-based) — the almond-shaped eye
+    var PT_EYE_THRESHOLD = 28;  // px, screen space
+    var PT_MAX           = 100; // hard cap; oldest particles are culled first when exceeded
+
+    // --- Canvas resize ---
     function ptResize() {
       var dpr = window.devicePixelRatio || 1;
       var w   = heroSection.offsetWidth;
@@ -242,20 +255,12 @@
       ptCanvas.style.width  = w + 'px';
       ptCanvas.style.height = h + 'px';
       ptCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      // Cache logical size — the rAF loop reads these instead of touching the DOM
+      ptLogW = w;
+      ptLogH = h;
     }
-    ptResize();
 
-    // --- Per-path data ---
-    // ptRawPaths : SVG-space points computed ONCE (getPointAtLength is expensive)
-    // ptPathData : screen-space samples, rebuilt cheaply on resize via ptApplyCTM()
-    var ptRawPaths    = []; // [{totalLen, svgPts:[{x,y,lenAt,pathIdx}]}]
-    var ptPathData    = []; // [{path, totalLen, samples:[{x,y,lenAt,pathIdx}]}]
-    var ptSampled     = []; // flat screen-space array for O(n) nearest search
-    var ptCTM         = null; // cached CTM — updated on resize, reused in find-nearest
-    var ptResizeTimer = null;
-    var ptSvgPt       = ptWmSvg.createSVGPoint(); // reusable SVG point
-
-    // Called ONCE: does all getPointAtLength() work and caches SVG-space coords
+    // --- Precompute SVG-space samples (expensive, runs once) ---
     function ptPrecompute() {
       ptRawPaths = [];
       ptWmPaths.forEach(function(path, pathIdx) {
@@ -271,170 +276,193 @@
       });
     }
 
-    // Called on init + resize: applies CTM to cached SVG-space points (no DOM path calls).
-    // Stores canvas-local (element-relative) coordinates so the effect is scroll-invariant.
+    // --- Apply CTM: maps cached SVG-space points → canvas-local coords (cheap) ---
+    // Also rebuilds ptAllSamples (burst origin pool) and ptLogoBBox in one pass.
     function ptApplyCTM() {
-      ptCTM = ptWmSvg.getScreenCTM();
-      if (!ptCTM) return;
+      var ctm = ptWmSvg.getScreenCTM();
+      if (!ctm) return;
       var heroRect = heroSection.getBoundingClientRect();
-      ptPathData = [];
-      ptSampled  = [];
+      ptPathData   = [];
+      ptAllSamples = [];
+      var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       ptRawPaths.forEach(function(raw, pathIdx) {
         var samples = [];
         raw.svgPts.forEach(function(sp) {
           ptSvgPt.x = sp.x; ptSvgPt.y = sp.y;
-          var sc    = ptSvgPt.matrixTransform(ptCTM);
-          // Subtract hero's current viewport offset → canvas-local coords (scroll-invariant)
-          var entry = { x: sc.x - heroRect.left, y: sc.y - heroRect.top, lenAt: sp.lenAt, pathIdx: pathIdx };
+          var sc = ptSvgPt.matrixTransform(ctm);
+          var x  = sc.x - heroRect.left;
+          var y  = sc.y - heroRect.top;
+          var entry = { x: x, y: y, lenAt: sp.lenAt, pathIdx: pathIdx };
           samples.push(entry);
-          ptSampled.push(entry);
+          ptAllSamples.push(entry);
+          if (x < minX) minX = x; if (x > maxX) maxX = x;
+          if (y < minY) minY = y; if (y > maxY) maxY = y;
         });
         ptPathData.push({ path: ptWmPaths[pathIdx], totalLen: raw.totalLen, samples: samples });
       });
-    }
-
-    ptPrecompute(); // expensive, one-time
-    ptApplyCTM();   // fast, repeated on resize
-
-    if (window.ResizeObserver) {
-      new ResizeObserver(function() {
-        ptResize();
-        clearTimeout(ptResizeTimer);
-        ptResizeTimer = setTimeout(ptApplyCTM, 150); // cheap: no getPointAtLength calls
-      }).observe(heroSection);
-    } else {
-      window.addEventListener('resize', function() {
-        ptResize();
-        clearTimeout(ptResizeTimer);
-        ptResizeTimer = setTimeout(ptApplyCTM, 150);
-      });
-    }
-
-    // --- Particle pool (all devices) ---
-    var ptParticles  = [];
-    var PT_THRESHOLD = 300;
-    var PT_MAX       = 200;
-
-    function ptMakeParticle(ox, oy, speed, life) {
-      var angle = Math.random() * 6.2832;
-      return {
-        x: ox, y: oy,
-        vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed,
-        life: life, maxLife: life,
-        size:  0.8 + Math.random() * 2.0,
-        phase: Math.random() * 6.2832
+      // Logo bounding box — used to scale rings to cover the whole logo
+      var bw = maxX - minX, bh = maxY - minY;
+      ptLogoBBox = {
+        cx: (minX + maxX) / 2,
+        cy: (minY + maxY) / 2,
+        halfDiag: Math.sqrt(bw * bw + bh * bh) / 2
       };
     }
 
-    // Continuous spawn driven by mouse proximity (desktop)
-    // Samples are already canvas-local, no rect subtraction needed.
-    function ptSpawn(intensity, pd) {
-      var count = Math.round(intensity * 2.5);
-      if (count < 1 || ptParticles.length >= PT_MAX) return;
-      var samps = pd.samples;
-      for (var i = 0; i < count; i++) {
-        if (ptParticles.length >= PT_MAX) break;
-        var origin = samps[Math.floor(Math.random() * samps.length)];
-        var ox     = origin.x + (Math.random() - 0.5) * 14;
-        var oy     = origin.y + (Math.random() - 0.5) * 14;
-        var speed  = (0.4 + Math.random() * 1.8) * (0.5 + intensity * 0.8);
-        ptParticles.push(ptMakeParticle(ox, oy, speed, Math.round(35 + Math.random() * 45)));
-      }
-    }
+    // --- Lazy init: canvas + full precompute, wired once on first eye click ---
+    function ptLazyInit() {
+      if (ptInitialized) return;
+      ptInitialized = true;
 
-    // Controls whether the initial page-load reveal fires stardust bursts
-    var PT_BURST_ON_REVEAL = false;
+      ptCanvas = document.createElement('canvas');
+      ptCanvas.setAttribute('aria-hidden', 'true');
+      ptCanvas.style.cssText = 'position:absolute;inset:0;pointer-events:none;z-index:1;';
+      heroSection.appendChild(ptCanvas);
+      ptCtx = ptCanvas.getContext('2d');
+      ptResize();
 
-    // One-shot burst for a single path (used by reveal and periodic loop)
-    function ptRevealBurst(pathIdx) {
-      var pd = ptPathData[pathIdx];
-      if (!pd) return;
-      var samps = pd.samples;
-      var count = Math.min(Math.round(14 + pd.totalLen * 0.11), 26);
-      for (var i = 0; i < count; i++) {
-        if (ptParticles.length >= PT_MAX) break;
-        var origin = samps[Math.floor(Math.random() * samps.length)];
-        var ox     = origin.x + (Math.random() - 0.5) * 14;
-        var oy     = origin.y + (Math.random() - 0.5) * 14;
-        var speed  = 0.5 + Math.random() * 2.4;
-        ptParticles.push(ptMakeParticle(ox, oy, speed, Math.round(120 + Math.random() * 80)));
-      }
-    }
+      ptPrecompute();
+      ptApplyCTM();
 
-    // Listen for each path's wmDraw animation starting (syncs with the trace reveal)
-    if (PT_BURST_ON_REVEAL) {
-      ptWmPaths.forEach(function(path, pathIdx) {
-        path.addEventListener('animationstart', function(e) {
-          if (e.animationName === 'wmDraw') ptRevealBurst(pathIdx);
+      if (window.ResizeObserver) {
+        new ResizeObserver(function() {
+          ptResize();
+          clearTimeout(ptResizeTimer);
+          ptResizeTimer = setTimeout(ptApplyCTM, 150);
+        }).observe(heroSection);
+      } else {
+        window.addEventListener('resize', function() {
+          ptResize();
+          clearTimeout(ptResizeTimer);
+          ptResizeTimer = setTimeout(ptApplyCTM, 150);
         });
-      });
+      }
     }
 
+    // --- Eye hit test ---
+    // Before init: 24 on-demand getPointAtLength samples on the eye path only.
+    // After init:  uses pre-cached canvas-local coords (zero DOM calls).
+    function ptHitTestEye(clientX, clientY) {
+      var eyePath = ptWmPaths[PT_EYE_IDX];
+      if (!eyePath) return false;
+      var t2 = PT_EYE_THRESHOLD * PT_EYE_THRESHOLD;
 
-    // --- Mouse state (set by desktop block below, read by ptLoop) ---
-    var ptMouseX      = -9999;
-    var ptMouseY      = -9999;
-    var ptNearest     = null;
-    var ptNearestDist = Infinity;
-
-    // --- Click-activated glow state ---
-    // Activated on click, pulses slowly then fades out over ~3 s
-    var ptGlow = null; // { pathIdx, energy, phase }
-
-    // --- rAF render loop (all devices) ---
-    function ptLoop() {
-      ptCtx.clearRect(0, 0, ptCanvas.width, ptCanvas.height);
-
-      // Click-activated path glow: pulses and fades until energy is exhausted
-      if (ptGlow && ptGlow.energy > 0.01) {
-        ptGlow.phase  += 0.04;                        // ~1.5 s per pulse cycle
-        ptGlow.energy *= 0.988;                       // slow exponential fade (~3 s to near-zero)
-        var pulse     = 0.55 + 0.45 * Math.abs(Math.sin(ptGlow.phase));
-        var gIntensity = ptGlow.energy * pulse;
-        var pd    = ptPathData[ptGlow.pathIdx];
-        var samps = pd ? pd.samples : [];
-
-        ptCtx.save();
-        ptCtx.shadowColor = '#fcd34d';
-        ptCtx.shadowBlur  = 4 + gIntensity * 18;
-        ptCtx.strokeStyle = 'rgba(252,211,77,' + (gIntensity * 0.65).toFixed(3) + ')';
-        ptCtx.lineWidth   = 0.5 + gIntensity * 1.5;
-        ptCtx.lineCap     = 'round';
-        ptCtx.lineJoin    = 'round';
-        ptCtx.beginPath();
-        for (var si = 0; si < samps.length; si++) {
-          if (si === 0) ptCtx.moveTo(samps[si].x, samps[si].y);
-          else          ptCtx.lineTo(samps[si].x, samps[si].y);
+      if (ptInitialized && ptPathData[PT_EYE_IDX]) {
+        var heroRect = heroSection.getBoundingClientRect();
+        var cx = clientX - heroRect.left;
+        var cy = clientY - heroRect.top;
+        var samps = ptPathData[PT_EYE_IDX].samples;
+        for (var i = 0; i < samps.length; i++) {
+          var dx = samps[i].x - cx, dy = samps[i].y - cy;
+          if (dx * dx + dy * dy < t2) return true;
         }
+        return false;
+      }
+
+      // Pre-init path: on-demand sample (24 pts) — only runs on click, not on load
+      var ctm = ptWmSvg.getScreenCTM();
+      if (!ctm) return false;
+      var totalLen = eyePath.getTotalLength();
+      for (var i = 0; i <= 24; i++) {
+        var p = eyePath.getPointAtLength((i / 24) * totalLen);
+        ptSvgPt.x = p.x; ptSvgPt.y = p.y;
+        var sc = ptSvgPt.matrixTransform(ctm);
+        var dx = sc.x - clientX, dy = sc.y - clientY;
+        if (dx * dx + dy * dy < t2) return true;
+      }
+      return false;
+    }
+
+    // --- Eye centroid in canvas-local coords ---
+    function ptEyeCenter() {
+      var samps = ptPathData[PT_EYE_IDX] ? ptPathData[PT_EYE_IDX].samples : [];
+      if (!samps.length) return { x: 0, y: 0 };
+      var sx = 0, sy = 0;
+      for (var i = 0; i < samps.length; i++) { sx += samps[i].x; sy += samps[i].y; }
+      return { x: sx / samps.length, y: sy / samps.length };
+    }
+
+    // --- rAF render loop: self-stops when the particle pool is empty ---
+    // Zero DOM reads inside: all values are pre-cached (ptLogW/H, p.hsl, p.rgbaFn).
+    function ptLoop() {
+      ptCtx.clearRect(0, 0, ptLogW, ptLogH);
+      var alive = false;
+
+      // Pass 1: expanding rings
+      for (var i = ptParticles.length - 1; i >= 0; i--) {
+        var p = ptParticles[i];
+        if (p.type !== 'r') continue;
+        p.r += p.dr;
+        p.life--;
+        if (p.life <= 0 || p.r >= p.maxR) { ptParticles.splice(i, 1); continue; }
+        alive = true;
+        var lf    = p.life / p.maxLife;
+        var alpha = lf * (1 - p.r / p.maxR) * 0.85;
+        ptCtx.save();
+        ptCtx.globalAlpha = alpha;
+        ptCtx.shadowColor = p.shadowColor;
+        ptCtx.shadowBlur  = 20 * lf;
+        ptCtx.strokeStyle = p.strokeColor;
+        ptCtx.lineWidth   = 1.5 + lf * 2.5;
+        ptCtx.beginPath();
+        ptCtx.arc(p.cx, p.cy, p.r, 0, 6.2832);
         ptCtx.stroke();
         ptCtx.restore();
       }
 
-      // Draw + update stardust particles (all devices)
-      ptCtx.save();
-      ptCtx.shadowColor = '#fde68a';
-      ptCtx.shadowBlur  = 6;
-
+      // Pass 2: shooting comets with colored trails
       for (var i = ptParticles.length - 1; i >= 0; i--) {
         var p = ptParticles[i];
-        p.vx *= 0.97; p.vy *= 0.97; p.vy += 0.025;
+        if (p.type !== 'c') continue;
+        p.px = p.x; p.py = p.y;
+        p.vx *= 0.91; p.vy *= 0.91; p.vy += 0.12;
         p.x  += p.vx; p.y  += p.vy; p.life--;
         if (p.life <= 0) { ptParticles.splice(i, 1); continue; }
+        alive = true;
+        var lf    = p.life / p.maxLife;
+        var alpha = Math.pow(lf, 0.6);
+        ptCtx.save();
+        ptCtx.globalAlpha = alpha;
+        ptCtx.shadowColor = p.hsl; // pre-computed string, no allocation per frame
+        ptCtx.shadowBlur  = 12 + p.size * 3;
+        ptCtx.strokeStyle = p.hsl;
+        ptCtx.lineWidth   = p.size * 0.9 * lf;
+        ptCtx.lineCap     = 'round';
+        ptCtx.beginPath();
+        ptCtx.moveTo(p.px, p.py);
+        ptCtx.lineTo(p.x,  p.y);
+        ptCtx.stroke();
+        ptCtx.globalAlpha = alpha * 0.95;
+        ptCtx.fillStyle   = '#ffffff';
+        ptCtx.shadowBlur  = 8;
+        ptCtx.beginPath();
+        ptCtx.arc(p.x, p.y, Math.max(p.size * 0.55 * lf, 0.5), 0, 6.2832);
+        ptCtx.fill();
+        ptCtx.restore();
+      }
 
-        var lifeFrac = p.life / p.maxLife;
-        var twinkle  = 0.55 + 0.45 * Math.abs(Math.sin(p.life * 0.45 + p.phase));
-        var alpha    = lifeFrac * twinkle;
-        var r        = p.size * (0.4 + lifeFrac * 0.6);
-
+      // Pass 3: gold-amber twinkling sparks
+      ptCtx.save();
+      for (var i = ptParticles.length - 1; i >= 0; i--) {
+        var p = ptParticles[i];
+        if (p.type !== 's') continue;
+        p.vx *= 0.94; p.vy *= 0.94; p.vy += 0.06;
+        p.x  += p.vx; p.y  += p.vy; p.life--;
+        if (p.life <= 0) { ptParticles.splice(i, 1); continue; }
+        alive = true;
+        var lf      = p.life / p.maxLife;
+        var twinkle = 0.55 + 0.45 * Math.abs(Math.sin(p.life * 0.45 + p.phase));
+        var alpha   = lf * twinkle;
+        var r       = p.size * (0.4 + lf * 0.6);
+        ptCtx.shadowColor = p.hsl; // pre-computed string, no allocation per frame
+        ptCtx.shadowBlur  = 8;
         ptCtx.globalAlpha = alpha * 0.9;
-        ptCtx.strokeStyle = '#fde68a';
+        ptCtx.strokeStyle = p.hsl;
         ptCtx.lineWidth   = Math.max(r * 0.5, 0.4);
         ptCtx.beginPath();
         ptCtx.moveTo(p.x - r, p.y); ptCtx.lineTo(p.x + r, p.y);
         ptCtx.moveTo(p.x, p.y - r); ptCtx.lineTo(p.x, p.y + r);
         ptCtx.stroke();
-
         ptCtx.globalAlpha = alpha;
         ptCtx.fillStyle   = '#ffffff';
         ptCtx.beginPath();
@@ -442,52 +470,105 @@
         ptCtx.fill();
       }
       ptCtx.restore();
-      requestAnimationFrame(ptLoop);
+
+      if (alive) {
+        requestAnimationFrame(ptLoop);
+      } else {
+        ptRafActive = false;
+      }
     }
 
-    requestAnimationFrame(ptLoop);
+    function ptEnsureRaf() {
+      if (!ptRafActive) {
+        ptRafActive = true;
+        requestAnimationFrame(ptLoop);
+      }
+    }
 
-    // --- Desktop-only: continuous mouse interaction ---
-    var ptDesktop = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
-    if (ptDesktop) {
+    // --- Oldest-first particle culling to enforce PT_MAX ---
+    function ptCullToMax(adding) {
+      var excess = ptParticles.length + adding - PT_MAX;
+      if (excess > 0) ptParticles.splice(0, excess);
+    }
 
-      // Nearest search runs entirely on pre-cached screen-space samples —
-      // zero getPointAtLength() or getScreenCTM() calls per mousemove.
-      function ptFindNearest() {
-        var best = null, bestD2 = Infinity;
-        for (var i = 0; i < ptSampled.length; i++) {
-          var s  = ptSampled[i];
-          var dx = s.x - ptMouseX, dy = s.y - ptMouseY;
-          var d2 = dx * dx + dy * dy;
-          if (d2 < bestD2) { bestD2 = d2; best = s; }
-        }
-        ptNearest     = best;
-        ptNearestDist = best ? Math.sqrt(bestD2) : Infinity;
+    // --- Eye of the Fox burst ---
+    // Rings centre on the eye; comets and sparks originate from the full logo outline.
+    function ptEyeBurst(cx, cy) {
+      var NEW_COUNT = 3 + 10 + 50;
+      ptCullToMax(NEW_COUNT);
+
+      // 3 expanding golden rings scaled to the full logo bounding box
+      var halfDiag = ptLogoBBox.halfDiag || 100;
+      for (var ri = 0; ri < 3; ri++) {
+        ptParticles.push({
+          type: 'r',
+          cx: cx, cy: cy,
+          r: 5, dr: 8 + ri * 4,
+          maxR: halfDiag * (0.85 + ri * 0.35),
+          life: 20 + ri * 5, maxLife: 20 + ri * 5,
+          // Pre-computed color strings — no string allocation inside the loop
+          shadowColor: 'rgba(255,210,80,1)',
+          strokeColor: 'rgba(255,220,100,1)'
+        });
       }
 
-      heroSection.addEventListener('mousemove', function(e) {
-        var r = heroSection.getBoundingClientRect();
-        ptMouseX = e.clientX - r.left;
-        ptMouseY = e.clientY - r.top;
-        ptFindNearest();
-      });
+      // 10 spectrum comets — spawn from random logo path points, shoot outward from eye
+      var totalSamples = ptAllSamples.length || 1;
+      for (var ci = 0; ci < 10; ci++) {
+        var origin = ptAllSamples[Math.floor(Math.random() * totalSamples)];
+        var ox = origin.x + (Math.random() - 0.5) * 14;
+        var oy = origin.y + (Math.random() - 0.5) * 14;
+        var dx = ox - cx, dy = oy - cy;
+        var dist  = Math.sqrt(dx * dx + dy * dy) || 1;
+        var speed = 14 + Math.random() * 10;
+        var hue   = (ci * 36) % 360;
+        ptParticles.push({
+          type: 'c',
+          x: ox, y: oy, px: ox, py: oy,
+          vx: (dx / dist) * speed * (0.7 + Math.random() * 0.6),
+          vy: (dy / dist) * speed * (0.7 + Math.random() * 0.6),
+          hue: hue,
+          hsl: 'hsl(' + hue + ',100%,70%)', // pre-computed — read directly in ptLoop
+          life: 18 + Math.round(Math.random() * 12),
+          maxLife: 30,
+          size: 2.5 + Math.random() * 2
+        });
+      }
 
-      heroSection.addEventListener('mouseleave', function() {
-        ptMouseX = -9999; ptMouseY = -9999;
-        ptNearest = null; ptNearestDist = Infinity;
-      });
+      // 50 gold-amber sparks — spawn from random logo path points, drift outward
+      for (var si = 0; si < 50; si++) {
+        var origin = ptAllSamples[Math.floor(Math.random() * totalSamples)];
+        var ox = origin.x + (Math.random() - 0.5) * 10;
+        var oy = origin.y + (Math.random() - 0.5) * 10;
+        var dx = ox - cx, dy = oy - cy;
+        var dist  = Math.sqrt(dx * dx + dy * dy) || 1;
+        var speed = 3 + Math.random() * 7;
+        var hue   = 30 + Math.random() * 30;
+        ptParticles.push({
+          type: 's',
+          x: ox, y: oy,
+          vx: (dx / dist) * speed * (0.5 + Math.random() * 0.5),
+          vy: (dy / dist) * speed * (0.5 + Math.random() * 0.5) - 1,
+          life: 35 + Math.round(Math.random() * 20),
+          maxLife: 55,
+          size: 0.9 + Math.random() * 2.2,
+          phase: Math.random() * 6.2832,
+          hue: hue,
+          hsl: 'hsl(' + hue + ',100%,75%)' // pre-computed — read directly in ptLoop
+        });
+      }
 
-      // Click near a path: fire stardust burst and start a pulsing glow that fades out.
-      // Extra guard: bail out on touch/coarse-pointer devices (e.g. hybrid tablets).
-      heroSection.addEventListener('click', function(e) {
-        if (window.matchMedia('(pointer: coarse)').matches) return;
-        if (ptNearest && ptNearestDist < PT_THRESHOLD) {
-          var idx = ptNearest.pathIdx;
-          ptRevealBurst(idx);
-          ptGlow = { pathIdx: idx, energy: 1.0, phase: 0 };
-        }
-      });
+      ptEnsureRaf();
     }
+
+    // --- Single click handler: eye-only, lazy-init on first hit ---
+    heroSection.addEventListener('click', function(e) {
+      if (window.matchMedia('(pointer: coarse)').matches) return;
+      if (!ptHitTestEye(e.clientX, e.clientY)) return;
+      ptLazyInit();
+      var center = ptEyeCenter();
+      ptEyeBurst(center.x, center.y);
+    });
   }
 
 })();

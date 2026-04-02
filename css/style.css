@@ -634,6 +634,12 @@ h1, h2, h3, h4, h5, h6 {
   display: block;
 }
 
+/* Dark background strip — for logos with white/transparent base (e.g. Laimek) */
+.partner__logo-wrap--dark {
+  background-color: #000;
+  border-radius: var(--radius-sm, 4px) var(--radius-sm, 4px) 0 0;
+}
+
 /* Info panel — always visible */
 .partner__info {
   padding: var(--space-3) var(--space-4) var(--space-4);
